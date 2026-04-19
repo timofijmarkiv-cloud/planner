@@ -1,0 +1,400 @@
+entities/Task.json
+{
+  "name": "Task",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "The task text"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["school", "sport", "life"],
+      "description": "Category of the task"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the task is completed"
+    }
+  },
+  "required": ["title", "category"]
+}
+App.jsx
+import { Toaster } from "@/components/ui/toaster"
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClientInstance } from '@/lib/query-client'
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import PageNotFound from './lib/PageNotFound';
+import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import { LangProvider } from '@/lib/i18n';
+import Home from './pages/Home';
+import Tasks from './pages/Tasks';
+
+const AuthenticatedApp = () => {
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+
+  if (isLoadingPublicSettings || isLoadingAuth) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (authError) {
+    if (authError.type === 'user_not_registered') {
+      return <UserNotRegisteredError />;
+    } else if (authError.type === 'auth_required') {
+      navigateToLogin();
+      return null;
+    }
+  }
+
+  return (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/tasks" element={<Tasks />} />
+      <Route path="*" element={<PageNotFound />} />
+    </Routes>
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <LangProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <Router>
+            <AuthenticatedApp />
+          </Router>
+          <Toaster />
+        </QueryClientProvider>
+      </LangProvider>
+    </AuthProvider>
+  )
+}
+
+export default App
+pages/Home.jsx
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { BookOpen, Dumbbell, Gamepad2, ArrowRight } from "lucide-react";
+import { useLang } from "@/lib/i18n";
+import LangSwitcher from "@/components/LangSwitcher";
+
+const CATEGORIES = [
+  { id: "school", icon: BookOpen, gradient: "from-blue-500 to-cyan-400", emoji: "📚" },
+  { id: "sport", icon: Dumbbell, gradient: "from-orange-500 to-pink-500", emoji: "🏃" },
+  { id: "life", icon: Gamepad2, gradient: "from-purple-500 to-fuchsia-500", emoji: "🎮" },
+];
+
+export default function Home() {
+  const navigate = useNavigate();
+  const { t } = useLang();
+
+  return (
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-primary/20 rounded-full blur-3xl" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl" />
+
+      <div className="relative max-w-2xl mx-auto px-6 py-12 md:py-20">
+        <div className="flex justify-end mb-4">
+          <LangSwitcher />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-12"
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary text-xs font-medium tracking-wide uppercase text-muted-foreground mb-6">
+            {t.appName}
+          </div>
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-foreground leading-[1.05]">
+            {t.onboardingTitle}
+            <br />
+            <span className="italic font-serif text-primary">{t.onboardingTitleItalic}</span>
+          </h1>
+          <p className="mt-5 text-muted-foreground text-lg max-w-md mx-auto">
+            {t.onboardingSubtitle}
+          </p>
+        </motion.div>
+
+        <div className="space-y-4">
+          {CATEGORIES.map((cat, i) => (
+            <motion.button
+              key={cat.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 + i * 0.08 }}
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate(`/tasks?category=${cat.id}`)}
+              className="group w-full text-left relative overflow-hidden rounded-2xl bg-card border border-border p-5 md:p-6 shadow-sm hover:shadow-xl transition-shadow"
+            >
+              <div className={`absolute inset-0 bg-gradient-to-br ${cat.gradient} opacity-0 group-hover:opacity-[0.08] transition-opacity`} />
+              <div className="relative flex items-center gap-4">
+                <div className={`shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${cat.gradient} flex items-center justify-center text-2xl md:text-3xl shadow-lg`}>
+                  <span>{cat.emoji}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xl md:text-2xl font-semibold text-foreground">{t[cat.id]}</div>
+                  <div className="text-sm text-muted-foreground mt-0.5">{t[`${cat.id}Desc`]}</div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-1 transition-all" />
+              </div>
+            </motion.button>
+          ))}
+        </div>
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="text-center text-xs text-muted-foreground mt-12"
+        >
+          {t.autoSave}
+        </motion.p>
+      </div>
+    </div>
+  );
+}
+pages/Tasks.jsx
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { base44 } from "@/api/base44Client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Sparkles } from "lucide-react";
+import TaskItem from "@/components/tasks/TaskItem";
+import AddTaskInput from "@/components/tasks/AddTaskInput";
+import LangSwitcher from "@/components/LangSwitcher";
+import { useLang } from "@/lib/i18n";
+
+const CATEGORY_CONFIG = {
+  school: { gradient: "from-blue-500 to-cyan-400", accent: "bg-gradient-to-br from-blue-500 to-cyan-400 hover:opacity-90", tint: "bg-blue-500/5", emoji: "📚" },
+  sport:  { gradient: "from-orange-500 to-pink-500", accent: "bg-gradient-to-br from-orange-500 to-pink-500 hover:opacity-90", tint: "bg-orange-500/5", emoji: "🏃" },
+  life:   { gradient: "from-purple-500 to-fuchsia-500", accent: "bg-gradient-to-br from-purple-500 to-fuchsia-500 hover:opacity-90", tint: "bg-purple-500/5", emoji: "🎮" },
+};
+
+export default function Tasks() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { t } = useLang();
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const category = urlParams.get("category") || "life";
+  const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.life;
+  const categoryLabel = t[category] || category;
+
+  const { data: tasks = [], isLoading } = useQuery({
+    queryKey: ["tasks", category],
+    queryFn: () => base44.entities.Task.filter({ category }, "-created_date"),
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["tasks", category] });
+
+  const createMutation = useMutation({
+    mutationFn: (title) => base44.entities.Task.create({ title, category, completed: false }),
+    onSuccess: invalidate,
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (task) => base44.entities.Task.update(task.id, { completed: !task.completed }),
+    onSuccess: invalidate,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (task) => base44.entities.Task.delete(task.id),
+    onSuccess: invalidate,
+  });
+
+  const completed = tasks.filter((t) => t.completed).length;
+  const total = tasks.length;
+
+  return (
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      <div className={`absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full blur-3xl opacity-30 bg-gradient-to-br ${config.gradient}`} />
+
+      <div className="relative max-w-2xl mx-auto px-5 py-8 md:py-12">
+        <div className="flex items-center justify-between mb-8">
+          <button onClick={() => navigate("/")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+            {t.back}
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-muted-foreground tabular-nums">{completed}/{total} {t.done}</div>
+            <LangSwitcher />
+          </div>
+        </div>
+
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${config.gradient} flex items-center justify-center text-2xl shadow-lg`}>
+              {config.emoji}
+            </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">{categoryLabel}</h1>
+              <p className="text-sm text-muted-foreground">{t.yourTasks}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <div className="mb-6">
+          <AddTaskInput onAdd={(title) => createMutation.mutate(title)} accentClass={config.accent} placeholder={t.addPlaceholder} />
+        </div>
+
+        <div className="space-y-2.5">
+          {isLoading ? (
+            <div className="text-center text-muted-foreground py-12">{t.loading}</div>
+          ) : tasks.length === 0 ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`rounded-3xl ${config.tint} border border-dashed border-border p-12 text-center`}>
+              <Sparkles className="w-8 h-8 mx-auto text-muted-foreground mb-3" />
+              <p className="text-foreground font-medium">{t.emptyTitle}</p>
+              <p className="text-sm text-muted-foreground mt-1">{t.emptySubtitle}</p>
+            </motion.div>
+          ) : (
+            <AnimatePresence mode="popLayout">
+              {tasks.map((task) => (
+                <TaskItem key={task.id} task={task} onToggle={(t) => toggleMutation.mutate(t)} onDelete={(t) => deleteMutation.mutate(t)} />
+              ))}
+            </AnimatePresence>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+components/tasks/TaskItem.jsx
+import React from "react";
+import { motion } from "framer-motion";
+import { Check, Trash2 } from "lucide-react";
+
+export default function TaskItem({ task, onToggle, onDelete }) {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, x: -30, scale: 0.95 }}
+      transition={{ duration: 0.25 }}
+      className="group flex items-center gap-3 bg-card border border-border rounded-2xl p-4 hover:shadow-md transition-shadow"
+    >
+      <button
+        onClick={() => onToggle(task)}
+        className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+          task.completed ? "bg-primary border-primary" : "border-muted-foreground/30 hover:border-primary"
+        }`}
+      >
+        {task.completed && <Check className="w-3.5 h-3.5 text-primary-foreground" strokeWidth={3} />}
+      </button>
+
+      <p className={`flex-1 text-base transition-all ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+        {task.title}
+      </p>
+
+      <button
+        onClick={() => onDelete(task)}
+        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
+    </motion.div>
+  );
+}
+components/tasks/AddTaskInput.jsx
+import React, { useState } from "react";
+import { Plus } from "lucide-react";
+
+export default function AddTaskInput({ onAdd, accentClass, placeholder }) {
+  const [value, setValue] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const text = value.trim();
+    if (!text) return;
+    onAdd(text);
+    setValue("");
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 bg-card border border-border rounded-2xl p-2 shadow-sm focus-within:ring-2 focus-within:ring-primary/30 transition-all">
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={placeholder || "Add a task..."}
+        className="flex-1 bg-transparent px-3 py-2 text-base outline-none placeholder:text-muted-foreground"
+      />
+      <button
+        type="submit"
+        disabled={!value.trim()}
+        className={`shrink-0 h-10 w-10 rounded-xl text-white flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed ${accentClass}`}
+      >
+        <Plus className="w-5 h-5" strokeWidth={2.5} />
+      </button>
+    </form>
+  );
+}
+components/LangSwitcher.jsx
+import React, { useState, useRef, useEffect } from "react";
+import { LANGUAGES, useLang } from "@/lib/i18n";
+import { ChevronDown, Search } from "lucide-react";
+
+export default function LangSwitcher() {
+  const { lang, switchLang, t } = useLang();
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef(null);
+  const inputRef = useRef(null);
+
+  const current = LANGUAGES.find((l) => l.code === lang) || LANGUAGES[0];
+  const filtered = LANGUAGES.filter((l) => l.label.toLowerCase().includes(search.toLowerCase()));
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) { setOpen(false); setSearch(""); }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (open && inputRef.current) setTimeout(() => inputRef.current?.focus(), 50);
+    else setSearch("");
+  }, [open]);
+
+  return (
+    <div ref__={ref} className="relative">
+      <button onClick={() => setOpen((v) => !v)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary text-sm font-medium text-foreground hover:bg-muted transition-colors">
+        <span>{current.label}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-2xl shadow-xl z-50 overflow-hidden">
+          <div className="p-2 border-b border-border">
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-secondary rounded-xl">
+              <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <input ref__={inputRef} value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t?.searchLang || "Search..."} className="bg-transparent text-sm outline-none w-full placeholder:text-muted-foreground" />
+            </div>
+          </div>
+          <div className="max-h-64 overflow-y-auto py-1.5">
+            {filtered.length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground py-4">—</p>
+            ) : (
+              filtered.map((l) => (
+                <button key={l.code} onClick={() => { switchLang(l.code); setOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-secondary transition-colors ${l.code === lang ? "font-semibold text-primary" : "text-foreground"}`}>
+                  {l.label}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
